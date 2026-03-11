@@ -1,7 +1,7 @@
 ---
 title: "BIOSTAT 620 Midterm Project Code"
 author: "Andre Gala-Garza"
-date: "3/9/2026"
+date: "3/11/2026"
 format: html
 editor: visual
 embed-resources: true
@@ -56,9 +56,9 @@ full_df <- cbind(metadata_df, expr_df)
 colnames(full_df)
 ```
 
-# Exploratory Analysis + Preliminary Results
+# Exploratory Analysis
 
-## 1. Basic dataset characteristics
+## Dataset characteristics
 
 ```{r}
 library(dplyr)
@@ -74,15 +74,21 @@ n_diseases <- n_distinct(full_df$disease)
 n_cell_types <- n_distinct(full_df$cell_type)
 
 data_summary <- data.frame(
-  Metric = c("Number of cells", "Number of variables", "Number of donors",
-             "Number of samples", "Number of disease groups", "Number of cell types"),
+  Metric = c(
+    "Number of cells",
+    "Number of variables",
+    "Number of donors",
+    "Number of samples",
+    "Number of disease groups",
+    "Number of cell types"
+  ),
   Value = c(n_rows, n_cols, n_donors, n_samples, n_diseases, n_cell_types)
 )
 
 kable(data_summary, caption = "Dataset characteristics")
 ```
 
-## 2. Variables included
+## Variables included
 
 ```{r}
 variable_summary <- data.frame(
@@ -92,7 +98,20 @@ variable_summary <- data.frame(
 
 kable(variable_summary, caption = "Variables included in the cleaned dataset")
 ```
-## 3. Distribution of categorical variables
+
+## Missing data
+
+```{r}
+missing_summary <- data.frame(
+  Variable = colnames(full_df),
+  Missing_Count = sapply(full_df, function(x) sum(is.na(x))),
+  Missing_Proportion = sapply(full_df, function(x) mean(is.na(x)))
+)
+
+kable(missing_summary, caption = "Missingness summary")
+```
+
+## Distribution of key categorical variables
 
 ```{r}
 disease_counts <- full_df %>%
@@ -151,41 +170,9 @@ ggplot(sex_counts, aes(x = sex, y = n)) +
   ) +
   theme_minimal()
 ```
-## 4. Disease vs cell type
-```{r}
-disease_celltype_counts <- full_df %>%
-  count(disease, cell_type) %>%
-  group_by(disease) %>%
-  mutate(prop = n / sum(n)) %>%
-  ungroup()
 
-kable(head(disease_celltype_counts, 20),
-      caption = "Cell type counts and proportions by disease")
-```
+## Distribution of key gene expression variables
 
-```{r}
-disease_celltype_counts %>%
-  group_by(cell_type) %>%
-  summarise(total = sum(n)) %>%
-  slice_max(order_by = total, n = 10) %>%
-  pull(cell_type) -> top_cell_types
-
-full_df %>%
-  filter(cell_type %in% top_cell_types) %>%
-  count(disease, cell_type) %>%
-  group_by(disease) %>%
-  mutate(prop = n / sum(n)) %>%
-  ungroup() %>%
-  ggplot(aes(x = disease, y = prop, fill = cell_type)) +
-  geom_col() +
-  labs(
-    title = "Cell type composition by disease status",
-    x = "Disease",
-    y = "Proportion"
-  ) +
-  theme_minimal()
-```
-## 5. Distribution of key gene expression variables
 ```{r}
 gene_summary <- full_df %>%
   summarise(
@@ -201,6 +188,7 @@ gene_summary <- full_df %>%
 
 kable(gene_summary, caption = "Summary statistics for selected genes")
 ```
+
 ```{r}
 ggplot(full_df, aes(x = CXCL1)) +
   geom_histogram(bins = 30) +
@@ -228,7 +216,67 @@ ggplot(full_df, aes(x = AGER)) +
   labs(title = "Distribution of AGER expression") +
   theme_minimal()
 ```
-## 6. Gene expression by disease
+
+# Preliminary Results
+
+## Cell type composition across disease groups
+
+```{r}
+disease_celltype_counts <- full_df %>%
+  count(disease, cell_type) %>%
+  group_by(disease) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+kable(
+  head(disease_celltype_counts, 20),
+  caption = "Cell type counts and proportions by disease"
+)
+```
+
+```{r}
+disease_celltype_counts %>%
+  group_by(cell_type) %>%
+  summarise(total = sum(n)) %>%
+  slice_max(order_by = total, n = 10) %>%
+  pull(cell_type) -> top_cell_types
+
+full_df %>%
+  filter(cell_type %in% top_cell_types) %>%
+  count(disease, cell_type) %>%
+  group_by(disease) %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup() %>%
+  ggplot(aes(x = disease, y = prop, fill = cell_type)) +
+  geom_col() +
+  labs(
+    title = "Cell type composition by disease status",
+    x = "Disease",
+    y = "Proportion"
+  ) +
+  theme_minimal()
+```
+
+## Gene expression by disease
+
+```{r}
+gene_disease_summary <- full_df %>%
+  group_by(disease) %>%
+  summarise(
+    n = n(),
+    CXCL1_mean = mean(CXCL1, na.rm = TRUE),
+    CXCL1_median = median(CXCL1, na.rm = TRUE),
+    CXCL8_mean = mean(CXCL8, na.rm = TRUE),
+    CXCL8_median = median(CXCL8, na.rm = TRUE),
+    SFTPC_mean = mean(SFTPC, na.rm = TRUE),
+    SFTPC_median = median(SFTPC, na.rm = TRUE),
+    AGER_mean = mean(AGER, na.rm = TRUE),
+    AGER_median = median(AGER, na.rm = TRUE)
+  )
+
+kable(gene_disease_summary, caption = "Summary statistics for selected genes by disease status")
+```
+
 ```{r}
 ggplot(full_df, aes(x = disease, y = CXCL1)) +
   geom_boxplot() +
@@ -273,10 +321,22 @@ ggplot(full_df, aes(x = disease, y = AGER)) +
   theme_minimal()
 ```
 
-## 7. Gene expression by disease within cell type
+## Follow-up analysis: gene expression by disease within cell type
 
 ```{r}
 sort(unique(full_df$cell_type))
+```
+
+```{r}
+full_df %>%
+  filter(cell_type == "pulmonary alveolar type 2 cell") %>%
+  group_by(disease) %>%
+  summarise(
+    n = n(),
+    SFTPC_mean = mean(SFTPC, na.rm = TRUE),
+    SFTPC_median = median(SFTPC, na.rm = TRUE)
+  ) %>%
+  kable(caption = "SFTPC summary statistics in pulmonary alveolar type 2 cells by disease")
 ```
 
 ```{r}
@@ -290,22 +350,6 @@ full_df %>%
     y = "SFTPC expression"
   ) +
   theme_minimal()
-```
-
-## 8. Missing data check
-```{r}
-missing_summary <- data.frame(
-  Variable = colnames(full_df),
-  Missing_Count = sapply(full_df, function(x) sum(is.na(x))),
-  Missing_Proportion = sapply(full_df, function(x) mean(is.na(x)))
-)
-
-kable(missing_summary, caption = "Missingness summary")
-```
-
-# Preliminary Results
-
-```{r}
 ```
 
 # Conclusion
