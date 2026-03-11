@@ -1,0 +1,52 @@
+---
+title: "Exploring Cell-Type Shifts Between Healthy and COPD Lung Tissue Using CELLxGENE Discover"
+author: "Andre Gala-Garza"
+date: "3/11/2026"
+format: html
+editor: visual
+embed-resources: true
+---
+
+**Disclaimer:** Generative AI was used to assist with drafting report information and templating and writing code in this assignment; however, this writing was checked manually and edited by hand to ensure accuracy.
+
+**Source:** OpenAI. (2026). *ChatGPT (GPT-5.4 Thinking)* \[Large language model\]. <https://chatgpt.com/>.
+
+# Introduction
+
+Chronic obstructive pulmonary disease (COPD) is a lung condition caused by damage to the lungs, which leads to swelling and irritation (a.k.a. inflammation), limited airflow to the lungs, and trouble breathing (Mayo Clinic). It is most frequently caused by long-term exposure to irritating smoke or fumes, especially cigarette smoke. The two most common types of COPD are chronic bronchitis, when the lining of the tubes that bring air into the lungs called bronchi are inflamed, and emphysema, which damages the small air sacs of the lungs called alveoli and prevent them from passing enough oxygen to the bloodstream (Mayo Clinic). To understand how COPD develops, an important type of investigation is to find the types of cells that are causing the condition.
+
+There are many distinct cell populations contained in the lung, including epithetial (outer surface) cells. The alveolar type 1 (AT1) cells and alveolar type 2 cells are particularly significant for maintaining gas exchange in the alveolar environment (Schiller et al). A previous study published in the *American Journal of Respiratory Cell and Molecular Biology* has explored the contents of lung cells with an isolated analysis technique known as single-cell RNA sequencing, which revealed a significant presence of AT2 cells in the lungs of those with COPD (Watanave et al). The dataset used in the study has been shared publicly, allowing further investigation into the provided single-cell RNA-seq data. This project aims to elaborate on this analysis from a visualization perspective by exploring the following question: **How do cell-type compositions and selected marker gene expression patterns differ between healthy and COPD lung tissue?**
+
+# Data Preparation
+
+The data used in this project comes from the study “Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease” and is made publicly available by the study authors through CZ CELLxGENE Discover, a data platform developed by the Chan Zuckerberg Initiative. The dataset was downloaded in H5AD format, which is a file type commonly used for single-cell genomics data. This format stores the data as an AnnData object, allowing both cell-level metadata and gene expression measurements to be accessed in a structured way for analysis in R.
+
+To prepare the data, the H5AD file was read into R using the anndata package with support from reticulate. The cell-level metadata were extracted from the "obs" component of the AnnData object and converted into a data frame. From this metadata, a smaller set of variables relevant to the research question was retained, including sample identifiers, donor identifiers, disease status, cell type, sex, tissue, sample collection site, tissue type, and sample source. In addition, expression values were extracted for a small set of selected genes of interest: CXCL1, CXCL8, SFTPC, and AGER. These genes were chosen because they are biologically relevant to lung epithelial function and inflammatory signaling in COPD. The filtered gene expression data were then combined with the selected metadata variables to create a cleaned analysis dataset for exploratory analysis and visualization.
+
+# Exploratory Analysis
+
+**TODO: dataset characteristics, variables included, distribution of key variables**
+
+# Preliminary Results
+
+**TODO: analysis of the primary research question and any subsequent follow-up questions, including summary statistics in tabular form and publication-quality figures (look at the kable() function from knitr for making nice tables)**
+
+# Conclusion
+
+**TODO: summary of what you found in the data (be brief!)**
+
+# Works Cited
+::: {=html}
+<div style="padding-left: 2em; text-indent: -2em;">
+“COPD - Symptoms and Causes.” <em>Mayo Clinic</em>, 30 Aug. 2024, www.mayoclinic.org/diseases-conditions/copd/symptoms-causes/syc-20353679. Accessed 9 Mar. 2026.
+</div>
+<div style="padding-left: 2em; text-indent: -2em;">
+Schiller, Herbert B., et al. “The Human Lung Cell Atlas: A High-Resolution Reference Map of the Human Lung in Health and Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 61, no. 1, July 2019, pp. 31–41, doi:10.1165/rcmb.2018-0416TR.
+</div>
+<div style="padding-left: 2em; text-indent: -2em;">
+Watanabe, Naoaki, et al. “Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 67, no. 6, Dec. 2022, pp. 708–719, doi:10.1165/rcmb.2021-0555OC.
+</div>
+<div style="padding-left: 2em; text-indent: -2em;">
+“Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>CELLxGENE Discover</em>, Chan Zuckerberg Initiative, cellxgene.cziscience.com/collections/dc4cd1f7-667a-4c29-ae77-9401b9700d7f. Accessed 9 Mar. 2026.
+</div>
+:::
