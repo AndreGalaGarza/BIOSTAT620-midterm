@@ -1,7 +1,7 @@
 ---
 title: "Exploring Cell-Type Shifts Between Healthy and COPD Lung Tissue Using CELLxGENE Discover"
 author: "Andre Gala-Garza"
-date: "3/11/2026"
+date: "3/13/2026"
 format: html
 editor: visual
 embed-resources: true
@@ -15,13 +15,15 @@ embed-resources: true
 
 Chronic obstructive pulmonary disease (COPD) is a lung condition caused by damage to the lungs, which leads to swelling and irritation (a.k.a. inflammation), limited airflow to the lungs, and trouble breathing (Mayo Clinic). It is most frequently caused by long-term exposure to irritating smoke or fumes, especially cigarette smoke. The two most common types of COPD are chronic bronchitis, when the lining of the tubes that bring air into the lungs called bronchi are inflamed, and emphysema, which damages the small air sacs of the lungs called alveoli and prevent them from passing enough oxygen to the bloodstream (Mayo Clinic). To understand how COPD develops, an important type of investigation is to find the types of cells that are causing the condition.
 
-There are many distinct cell populations contained in the lung, including epithetial (outer surface) cells. The alveolar type 1 (AT1) cells and alveolar type 2 cells are particularly significant for maintaining gas exchange in the alveolar environment (Schiller et al). A previous study published in the *American Journal of Respiratory Cell and Molecular Biology* has explored the contents of lung cells with an isolated analysis technique known as single-cell RNA sequencing, which revealed a significant presence of AT2 cells in the lungs of those with COPD (Watanave et al). The dataset used in the study has been shared publicly, allowing further investigation into the provided single-cell RNA-seq data. This project aims to elaborate on this analysis from a visualization perspective by exploring the following question: **How do cell-type compositions and selected marker gene expression patterns differ between healthy and COPD lung tissue?**
+There are many distinct cell populations contained in the lung, including epithetial (outer surface) cells. The alveolar type 1 (AT1) cells and alveolar type 2 (AT2) cells are particularly significant for maintaining gas exchange in the alveolar environment (Schiller et al). A previous study published in the *American Journal of Respiratory Cell and Molecular Biology* has explored the contents of lung cells with an isolated analysis technique known as single-cell RNA sequencing, which revealed a significant presence of AT2 cells in the lungs of those with COPD (Watanave et al). The dataset used in the study has been shared publicly, allowing further investigation into the provided single-cell RNA-seq data. This project aims to elaborate on this analysis from a visualization perspective by exploring the following question: **How do cell-type compositions and selected marker gene expression patterns differ between healthy and COPD lung tissue?**
 
 # Data Preparation
 
 The data used in this project comes from the study “Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease” and is made publicly available by the study authors through CZ CELLxGENE Discover, a data platform developed by the Chan Zuckerberg Initiative. The dataset was downloaded in H5AD format, which is a file type commonly used for single-cell genomics data. This format stores the data as an AnnData object, allowing both cell-level metadata and gene expression measurements to be accessed in a structured way for analysis in R.
 
-To prepare the data, the H5AD file was read into R using the anndata package with support from reticulate. The cell-level metadata were extracted from the "obs" component of the AnnData object and converted into a data frame. From this metadata, a smaller set of variables relevant to the research question was retained, including sample identifiers, donor identifiers, disease status, cell type, sex, tissue, sample collection site, tissue type, and sample source. In addition, expression values were extracted for a small set of selected genes of interest: CXCL1, CXCL8, SFTPC, and AGER. These genes were chosen because they are biologically relevant to lung epithelial function and inflammatory signaling in COPD. The filtered gene expression data were then combined with the selected metadata variables to create a cleaned analysis dataset for exploratory analysis and visualization.
+To prepare the data, the H5AD file was read into R using the anndata package with support from reticulate. The cell-level metadata were extracted from the "obs" component of the AnnData object and converted into a data frame. From this metadata, a smaller set of variables relevant to the research question was retained, including sample identifiers, donor identifiers, disease status, cell type, sex, tissue, sample collection site, tissue type, and sample source.
+
+In addition, expression values were extracted for a small set of selected genes of interest: SFTPC, ABCA3, AGER, and SFTPB. These genes were chosen because they are biologically relevant markers of alveolar epithelial cell identity and function, particularly for distinguishing alveolar type 1 (AT1) and alveolar type 2 (AT2) cell states in the lung. The filtered gene expression data were then combined with the selected metadata variables to create a cleaned analysis dataset for exploratory analysis and visualization.
 
 ```{r}
 #| label: setup
@@ -34,6 +36,8 @@ library(knitr)
 library(stringr)
 library(forcats)
 library(scales)
+library(Matrix)
+library(tidyr)
 
 py_require("anndata")
 
@@ -80,10 +84,10 @@ metadata_df <- as.data.frame(ad$obs[, cols_keep])
 gene_names <- as.character(ad$var_names)
 
 genes_keep <- c(
-  CXCL1 = "ENSG00000163739",
-  CXCL8 = "ENSG00000169429",
   SFTPC = "ENSG00000168484",
-  AGER  = "ENSG00000204305"
+  ABCA3 = "ENSG00000167972",
+  AGER  = "ENSG00000204305",
+  SFTPB = "ENSG00000168878"
 )
 
 genes_present <- genes_keep[genes_keep %in% gene_names]
@@ -93,6 +97,7 @@ colnames(expr_df) <- names(genes_present)
 
 full_df <- cbind(metadata_df, expr_df)
 ```
+
 
 ## Dataset characteristics
 
@@ -121,6 +126,8 @@ data_summary <- data.frame(
 kable_style(data_summary, caption = "Dataset characteristics")
 ```
 
+This table shows that the analytic dataset is fairly large, with 57,918 cells spanning 16 donors, 16 samples, and 21 cell types across two disease groups.
+
 ## Variables included
 
 The cleaned dataset includes donor- and sample-level identifiers, disease status, cell type, sex, tissue descriptors, sample source information, and the four selected gene expression variables.
@@ -135,6 +142,8 @@ variable_summary <- data.frame(
 
 kable_style(variable_summary, caption = "Variables included in the cleaned dataset")
 ```
+
+This table confirms that the cleaned dataset combines nine metadata variables with four numeric gene expression variables for the selected marker panel.
 
 ## Missing data
 
@@ -152,6 +161,8 @@ missing_summary <- data.frame(
 kable_style(missing_summary, caption = "Missingness summary")
 ```
 
+This table indicates that there is no missing data in the metadata or selected gene expression variables used for this analysis.
+
 ## Distribution of key categorical variables
 
 The following code tabulates the number of cells observed in each disease group.
@@ -163,6 +174,8 @@ disease_counts <- full_df %>%
 
 kable_style(disease_counts, caption = "Cell counts by disease status")
 ```
+
+This table shows that the dataset contains more cells from normal tissue than from COPD tissue.
 
 The following figure visualizes the distribution of cells across disease groups.
 
@@ -182,6 +195,8 @@ ggplot(disease_counts, aes(x = disease, y = n)) +
   )
 ```
 
+This bar chart reinforces that normal samples contribute more cells overall than COPD samples, which is important context for interpreting later group comparisons.
+
 The following code tabulates the most common cell types in the analytic dataset.
 
 ```{r}
@@ -190,6 +205,8 @@ cell_type_counts <- full_df %>%
 
 kable_style(head(cell_type_counts, 15), caption = "Top 15 cell types by count")
 ```
+
+This table shows that T cells, natural killer cells, endothelial cells, and macrophages are among the most common cell populations in the dataset, while pulmonary alveolar type 2 cells are present but less abundant overall.
 
 The following figure displays the 15 most common cell types by frequency.
 
@@ -212,6 +229,8 @@ cell_type_counts %>%
   )
 ```
 
+This plot shows that a small set of immune and endothelial populations makes up much of the dataset, with CD4-positive T cells being the most abundant cell type.
+
 The following code summarizes the number of cells contributed by each recorded sex category.
 
 ```{r}
@@ -220,6 +239,8 @@ sex_counts <- full_df %>%
 
 kable_style(sex_counts, caption = "Cell counts by sex")
 ```
+
+This table shows that more cells in the dataset come from male donors than from female donors.
 
 The following figure shows the distribution of cells by recorded sex.
 
@@ -237,6 +258,8 @@ ggplot(sex_counts, aes(x = fct_reorder(sex, n), y = n)) +
   )
 ```
 
+This bar chart mirrors the table by showing a noticeably larger number of cells from male donors than from female donors.
+
 ## Distribution of key gene expression variables
 
 The following code calculates summary statistics for the selected gene expression variables across all cells.
@@ -244,10 +267,10 @@ The following code calculates summary statistics for the selected gene expressio
 ```{r}
 gene_summary <- full_df %>%
   summarise(
-    CXCL1_mean = mean(CXCL1, na.rm = TRUE),
-    CXCL1_median = median(CXCL1, na.rm = TRUE),
-    CXCL8_mean = mean(CXCL8, na.rm = TRUE),
-    CXCL8_median = median(CXCL8, na.rm = TRUE),
+    ABCA3_mean = mean(ABCA3, na.rm = TRUE),
+    ABCA3_median = median(ABCA3, na.rm = TRUE),
+    SFTPB_mean = mean(SFTPB, na.rm = TRUE),
+    SFTPB_median = median(SFTPB, na.rm = TRUE),
     SFTPC_mean = mean(SFTPC, na.rm = TRUE),
     SFTPC_median = median(SFTPC, na.rm = TRUE),
     AGER_mean = mean(AGER, na.rm = TRUE),
@@ -257,69 +280,47 @@ gene_summary <- full_df %>%
 kable_style(gene_summary, caption = "Summary statistics for selected genes")
 ```
 
-The following figure shows the overall distribution of CXCL1 expression across all cells.
+This table shows that SFTPC has the highest overall expression among the selected genes, while ABCA3 and especially AGER are much sparser across all cells.
+
+The following code tabulates the proportion of nonzero expression values for the selected genes.
+
+```{r}
+selected_gene_nonzero <- full_df %>%
+  summarise(across(all_of(names(genes_present)), ~ mean(.x != 0, na.rm = TRUE))) %>%
+  tidyr::pivot_longer(
+    cols = everything(),
+    names_to = "Gene",
+    values_to = "Proportion_Nonzero"
+  )
+
+kable_style(selected_gene_nonzero, caption = "Proportion of nonzero expression values for selected genes")
+```
+
+This table shows that SFTPC is nonzero in the largest share of cells, followed by SFTPB, while ABCA3 and AGER are detected in much smaller proportions of cells.
+
+The following figure shows the distribution of nonzero proportions across all genes with zero-proportion genes excluded.
 
 ```{r}
 #| fig-width: 7
 #| fig-height: 4.5
-#| fig-cap: "Distribution of CXCL1 expression across all cells."
-ggplot(full_df, aes(x = CXCL1)) +
+#| fig-cap: "Distribution of gene-level nonzero expression proportions across all genes, excluding genes with a proportion of 0."
+nonzero_prop <- Matrix::colMeans(ad$X != 0)
+gene_nonzero_df <- data.frame(
+  gene = gene_names,
+  prop_nonzero = nonzero_prop
+)
+
+ggplot(gene_nonzero_df %>% filter(prop_nonzero > 0), aes(x = prop_nonzero)) +
   geom_histogram(bins = 40, fill = "#4C78A8", color = "white", linewidth = 0.2) +
   scale_y_continuous(labels = comma) +
   labs(
-    title = "CXCL1 expression distribution",
-    x = "CXCL1 expression",
-    y = "Number of cells"
+    title = "Distribution of nonzero proportions across genes",
+    x = "Proportion of cells with nonzero expression",
+    y = "Number of genes"
   )
 ```
 
-The following figure shows the overall distribution of CXCL8 expression across all cells.
-
-```{r}
-#| fig-width: 7
-#| fig-height: 4.5
-#| fig-cap: "Distribution of CXCL8 expression across all cells."
-ggplot(full_df, aes(x = CXCL8)) +
-  geom_histogram(bins = 40, fill = "#4C78A8", color = "white", linewidth = 0.2) +
-  scale_y_continuous(labels = comma) +
-  labs(
-    title = "CXCL8 expression distribution",
-    x = "CXCL8 expression",
-    y = "Number of cells"
-  )
-```
-
-The following figure shows the overall distribution of SFTPC expression across all cells.
-
-```{r}
-#| fig-width: 7
-#| fig-height: 4.5
-#| fig-cap: "Distribution of SFTPC expression across all cells."
-ggplot(full_df, aes(x = SFTPC)) +
-  geom_histogram(bins = 40, fill = "#4C78A8", color = "white", linewidth = 0.2) +
-  scale_y_continuous(labels = comma) +
-  labs(
-    title = "SFTPC expression distribution",
-    x = "SFTPC expression",
-    y = "Number of cells"
-  )
-```
-
-The following figure shows the overall distribution of AGER expression across all cells.
-
-```{r}
-#| fig-width: 7
-#| fig-height: 4.5
-#| fig-cap: "Distribution of AGER expression across all cells."
-ggplot(full_df, aes(x = AGER)) +
-  geom_histogram(bins = 40, fill = "#4C78A8", color = "white", linewidth = 0.2) +
-  scale_y_continuous(labels = comma) +
-  labs(
-    title = "AGER expression distribution",
-    x = "AGER expression",
-    y = "Number of cells"
-  )
-```
+This histogram shows that most genes are nonzero in only a small fraction of cells even after excluding genes with zero nonzero proportion, which is consistent with the sparse nature of single-cell RNA-seq data.
 
 # Preliminary Results
 
@@ -340,6 +341,8 @@ kable_style(
 )
 ```
 
+This table suggests that COPD samples contain substantial contributions from immune populations such as CD4-positive T cells, natural killer cells, macrophages, and monocytes, alongside smaller AT1 and AT2 compartments.
+
 The following code identifies the most abundant cell types overall and prepares a disease-specific composition dataset for visualization.
 
 ```{r}
@@ -357,6 +360,8 @@ plot_celltype_comp <- full_df %>%
   ungroup() %>%
   mutate(cell_type = fct_reorder(cell_type, n, .fun = sum))
 ```
+
+This code creates the grouped composition dataset used to compare how the dominant cell types are distributed within each disease category.
 
 The following figure compares the relative composition of the most abundant cell types across disease groups.
 
@@ -377,6 +382,8 @@ ggplot(plot_celltype_comp, aes(x = disease, y = prop, fill = cell_type)) +
   guides(fill = guide_legend(ncol = 1))
 ```
 
+This stacked bar chart suggests that the overall composition of the most abundant cell types is broadly similar across disease groups, but with modest shifts in the relative contributions of immune and epithelial populations.
+
 ## Gene expression by disease
 
 The following code computes disease-specific summary statistics for each selected gene to address the primary research question.
@@ -386,10 +393,10 @@ gene_disease_summary <- full_df %>%
   group_by(disease) %>%
   summarise(
     n = n(),
-    CXCL1_mean = mean(CXCL1, na.rm = TRUE),
-    CXCL1_median = median(CXCL1, na.rm = TRUE),
-    CXCL8_mean = mean(CXCL8, na.rm = TRUE),
-    CXCL8_median = median(CXCL8, na.rm = TRUE),
+    ABCA3_mean = mean(ABCA3, na.rm = TRUE),
+    ABCA3_median = median(ABCA3, na.rm = TRUE),
+    SFTPB_mean = mean(SFTPB, na.rm = TRUE),
+    SFTPB_median = median(SFTPB, na.rm = TRUE),
     SFTPC_mean = mean(SFTPC, na.rm = TRUE),
     SFTPC_median = median(SFTPC, na.rm = TRUE),
     AGER_mean = mean(AGER, na.rm = TRUE),
@@ -399,47 +406,53 @@ gene_disease_summary <- full_df %>%
 kable_style(gene_disease_summary, caption = "Summary statistics for selected genes by disease status")
 ```
 
-The following figure compares CXCL1 expression distributions across disease groups.
+This table shows that mean expression is lower in COPD for ABCA3 and SFTPC, slightly higher in COPD for SFTPB, and that the medians remain zero for several genes because of persistent sparsity.
+
+The following figure compares ABCA3 expression distributions across disease groups.
 
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
-#| fig-cap: "Distribution of CXCL1 expression by disease group. Violin plots show the full distribution, while boxplots summarize the median and interquartile range."
-ggplot(full_df, aes(x = disease, y = CXCL1)) +
+#| fig-cap: "Distribution of nonzero ABCA3 expression by disease group. Violin plots show the nonzero distribution, while boxplots summarize the median and interquartile range."
+ggplot(full_df %>% filter(ABCA3 > 0), aes(x = disease, y = ABCA3)) +
   geom_violin(fill = "gray85", color = NA, scale = "width") +
   geom_boxplot(width = 0.18, outlier.alpha = 0.08, linewidth = 0.3) +
   scale_x_discrete(labels = wrap_axis) +
   labs(
-    title = "CXCL1 expression by disease status",
+    title = "ABCA3 expression by disease status",
     x = NULL,
-    y = "CXCL1 expression"
+    y = "ABCA3 expression"
   )
 ```
 
-The following figure compares CXCL8 expression distributions across disease groups.
+This plot suggests that among cells with detectable expression, ABCA3 values tend to be somewhat lower in COPD than in normal tissue.
+
+The following figure compares SFTPB expression distributions across disease groups.
 
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
-#| fig-cap: "Distribution of CXCL8 expression by disease group."
-ggplot(full_df, aes(x = disease, y = CXCL8)) +
+#| fig-cap: "Distribution of nonzero SFTPB expression by disease group."
+ggplot(full_df %>% filter(SFTPB > 0), aes(x = disease, y = SFTPB)) +
   geom_violin(fill = "gray85", color = NA, scale = "width") +
   geom_boxplot(width = 0.18, outlier.alpha = 0.08, linewidth = 0.3) +
   scale_x_discrete(labels = wrap_axis) +
   labs(
-    title = "CXCL8 expression by disease status",
+    title = "SFTPB expression by disease status",
     x = NULL,
-    y = "CXCL8 expression"
+    y = "SFTPB expression"
   )
 ```
+
+This plot suggests that the nonzero distribution of SFTPB is fairly similar across disease groups, with at most a modest elevation in COPD.
 
 The following figure compares SFTPC expression distributions across disease groups.
 
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
-#| fig-cap: "Distribution of SFTPC expression by disease group."
-ggplot(full_df, aes(x = disease, y = SFTPC)) +
+#| fig-cap: "Distribution of nonzero SFTPC expression by disease group."
+ggplot(full_df %>% filter(SFTPC > 0), aes(x = disease, y = SFTPC)) +
   geom_violin(fill = "gray85", color = NA, scale = "width") +
   geom_boxplot(width = 0.18, outlier.alpha = 0.08, linewidth = 0.3) +
   scale_x_discrete(labels = wrap_axis) +
@@ -450,13 +463,15 @@ ggplot(full_df, aes(x = disease, y = SFTPC)) +
   )
 ```
 
+This plot shows that nonzero SFTPC expression is shifted downward in COPD relative to normal tissue, which matches the lower summary statistics for COPD.
+
 The following figure compares AGER expression distributions across disease groups.
 
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
-#| fig-cap: "Distribution of AGER expression by disease group."
-ggplot(full_df, aes(x = disease, y = AGER)) +
+#| fig-cap: "Distribution of nonzero AGER expression by disease group."
+ggplot(full_df %>% filter(AGER > 0), aes(x = disease, y = AGER)) +
   geom_violin(fill = "gray85", color = NA, scale = "width") +
   geom_boxplot(width = 0.18, outlier.alpha = 0.08, linewidth = 0.3) +
   scale_x_discrete(labels = wrap_axis) +
@@ -466,6 +481,8 @@ ggplot(full_df, aes(x = disease, y = AGER)) +
     y = "AGER expression"
   )
 ```
+
+This plot suggests that nonzero AGER expression is also somewhat lower in COPD than in normal tissue, though the difference appears less pronounced than for SFTPC.
 
 ## Follow-up analysis: gene expression by disease within cell type
 
@@ -485,14 +502,16 @@ full_df %>%
   kable_style(caption = "SFTPC summary statistics in pulmonary alveolar type 2 cells by disease")
 ```
 
+This table shows that within pulmonary alveolar type 2 cells, mean SFTPC expression is slightly lower in COPD than in normal tissue, although the median remains high in both groups.
+
 The following figure compares SFTPC expression across disease groups within pulmonary alveolar type 2 cells.
 
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
-#| fig-cap: "SFTPC expression across disease groups within pulmonary alveolar type 2 cells."
+#| fig-cap: "Nonzero SFTPC expression across disease groups within pulmonary alveolar type 2 cells."
 full_df %>%
-  filter(cell_type == "pulmonary alveolar type 2 cell") %>%
+  filter(cell_type == "pulmonary alveolar type 2 cell", SFTPC > 0) %>%
   ggplot(aes(x = disease, y = SFTPC)) +
   geom_violin(fill = "gray85", color = NA, scale = "width") +
   geom_boxplot(width = 0.18, outlier.alpha = 0.08, linewidth = 0.3) +
@@ -504,22 +523,28 @@ full_df %>%
   )
 ```
 
+This plot shows that among AT2 cells with nonzero SFTPC expression, the COPD distribution is slightly lower and more spread out than the normal distribution.
+
 # Conclusion
 
-Overall, the rendered results suggest meaningful differences between normal and chronic obstructive pulmonary disease (COPD) samples in both cell composition and gene expression. The dataset included 57,918 cells from 16 donors and 16 samples, with more cells from normal tissue than COPD tissue (35,799 vs. 22,119), and no missing data in the variables analyzed. The cell-type composition plots indicate that the relative abundance of major immune and epithelial populations differs by disease group, supporting the idea that COPD is associated with shifts in the cellular makeup of lung tissue. Gene-level summaries also showed disease-related expression differences: compared with normal samples, COPD samples had higher mean expression of CXCL1 (0.060 vs. 0.031) and CXCL8 (0.351 vs. 0.218), but lower mean expression of SFTPC (0.733 vs. 0.995) and AGER (0.040 vs. 0.051). In the follow-up analysis restricted to pulmonary alveolar type 2 cells, mean SFTPC expression was still slightly lower in COPD than in normal cells (6.513 vs. 6.610), suggesting that the disease-associated reduction in SFTPC is not explained only by broad differences in cell-type composition. Together, these findings provide preliminary evidence that COPD is associated with both altered lung cell populations and shifts in expression of biologically relevant marker genes.
+Overall, the results point to modest but interpretable differences between normal and chronic obstructive pulmonary disease (COPD) lung tissue in both cell composition and alveolar marker expression. The analytic dataset contained 57,918 cells from 16 donors and 16 samples, with more cells from normal tissue than COPD tissue (35,799 vs. 22,119) and no missing values in the variables analyzed. The composition summaries suggest that both disease groups share many of the same dominant immune and endothelial cell types, but their relative proportions are not identical, which is consistent with disease-related shifts in lung cellular makeup. Across the selected marker panel, SFTPC had the broadest detection overall, while ABCA3 and AGER were much sparser; by disease status, mean ABCA3 and SFTPC expression were lower in COPD than in normal tissue, SFTPB was slightly higher in COPD, and the nonzero distribution of AGER also appeared somewhat lower in COPD. In the follow-up analysis restricted to pulmonary alveolar type 2 cells, mean SFTPC expression remained slightly lower in COPD than in normal cells, and the nonzero COPD distribution was somewhat lower and more variable, suggesting that the reduction in SFTPC is not driven only by broad shifts in cell-type composition. Taken together, these results are most consistent with COPD being associated with subtle changes in both lung cell composition and the expression of alveolar epithelial marker genes, especially markers related to AT2 identity.
 
 # Works Cited
-::: {=html}
-<div style="padding-left: 2em; text-indent: -2em;">
+
+::::::: {=html}
+::: {style="padding-left: 2em; text-indent: -2em;"}
 “COPD - Symptoms and Causes.” <em>Mayo Clinic</em>, 30 Aug. 2024, www.mayoclinic.org/diseases-conditions/copd/symptoms-causes/syc-20353679. Accessed 9 Mar. 2026.
-</div>
-<div style="padding-left: 2em; text-indent: -2em;">
-Schiller, Herbert B., et al. “The Human Lung Cell Atlas: A High-Resolution Reference Map of the Human Lung in Health and Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 61, no. 1, July 2019, pp. 31–41, doi:10.1165/rcmb.2018-0416TR.
-</div>
-<div style="padding-left: 2em; text-indent: -2em;">
-Watanabe, Naoaki, et al. “Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 67, no. 6, Dec. 2022, pp. 708–719, doi:10.1165/rcmb.2021-0555OC.
-</div>
-<div style="padding-left: 2em; text-indent: -2em;">
-“Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>CELLxGENE Discover</em>, Chan Zuckerberg Initiative, cellxgene.cziscience.com/collections/dc4cd1f7-667a-4c29-ae77-9401b9700d7f. Accessed 9 Mar. 2026.
-</div>
 :::
+
+::: {style="padding-left: 2em; text-indent: -2em;"}
+Schiller, Herbert B., et al. “The Human Lung Cell Atlas: A High-Resolution Reference Map of the Human Lung in Health and Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 61, no. 1, July 2019, pp. 31–41, doi:10.1165/rcmb.2018-0416TR.
+:::
+
+::: {style="padding-left: 2em; text-indent: -2em;"}
+Watanabe, Naoaki, et al. “Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>American Journal of Respiratory Cell and Molecular Biology</em>, vol. 67, no. 6, Dec. 2022, pp. 708–719, doi:10.1165/rcmb.2021-0555OC.
+:::
+
+::: {style="padding-left: 2em; text-indent: -2em;"}
+“Anomalous Epithelial Variations and Ectopic Inflammatory Response in Chronic Obstructive Pulmonary Disease.” <em>CELLxGENE Discover</em>, Chan Zuckerberg Initiative, cellxgene.cziscience.com/collections/dc4cd1f7-667a-4c29-ae77-9401b9700d7f. Accessed 9 Mar. 2026.
+:::
+:::::::
